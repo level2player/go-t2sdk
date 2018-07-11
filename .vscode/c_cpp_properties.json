@@ -1,0 +1,29 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "includePath": [
+                "D:/Source/git_repository/Go/src/go-t2sdk/*",
+                "D:/Source/git_repository/Go/src/go-t2sdk/Include/*",
+                "${workspaceFolder}/**",
+                "${workspaceFolder}",
+                "D:/Source/MinGW/mingw64/x86_64-w64-mingw32/include/c++/tr1"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "msvc-x64"
+        }
+    ],
+    "version": 4
+}

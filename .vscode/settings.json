@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "t2sdk_interface.h": "c",
+        "esb_message_interface.h": "c"
+    },
+    "go.gocodeAutoBuild": true
+}
