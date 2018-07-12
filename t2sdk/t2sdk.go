@@ -51,6 +51,22 @@ var (
 	freeMem            uintptr
 	asynSendBiz        uintptr
 	registeredCallBack *syscall.Proc
+
+	getNewPublisher             uintptr
+	getMCLastError              uintptr
+	pubMsgByPacker              uintptr
+	getNewSubscriber            uintptr
+	getNewSubscribeParam        uintptr
+	setTopicName                uintptr
+	setFromNow                  uintptr
+	setReplace                  uintptr
+	setAppData                  uintptr
+	setFilter                   uintptr
+	setSendInterval             uintptr
+	subscribeTopic              uintptr
+	cancelSubscribeTopic        uintptr
+	getUnPack                   uintptr
+	registeredSubscribeCallBack *syscall.Proc
 )
 
 func MustGetProcAddress(lib uintptr, name string) uintptr {
@@ -105,6 +121,21 @@ func init() {
 	freeMem = MustGetProcAddress(t2sdkEx, "FreeMem")
 	asynSendBiz = MustGetProcAddress(t2sdkEx, "AsynSendBiz")
 	registeredCallBack = t2sdkExDll.MustFindProc("RegisteredCallBack")
+	getNewPublisher = MustGetProcAddress(t2sdkEx, "GetNewPublisher")
+	getMCLastError = MustGetProcAddress(t2sdkEx, "GetMCLastError")
+	pubMsgByPacker = MustGetProcAddress(t2sdkEx, "PubMsgByPacker")
+	getNewSubscriber = MustGetProcAddress(t2sdkEx, "GetNewSubscriber")
+	getNewSubscribeParam = MustGetProcAddress(t2sdkEx, "GetNewSubscribeParam")
+	setTopicName = MustGetProcAddress(t2sdkEx, "SetTopicName")
+	setFromNow = MustGetProcAddress(t2sdkEx, "SetFromNow")
+	setReplace = MustGetProcAddress(t2sdkEx, "SetReplace")
+	setAppData = MustGetProcAddress(t2sdkEx, "SetAppData")
+	setFilter = MustGetProcAddress(t2sdkEx, "SetFilter")
+	setSendInterval = MustGetProcAddress(t2sdkEx, "SetSendInterval")
+	subscribeTopic = MustGetProcAddress(t2sdkEx, "SubscribeTopic")
+	cancelSubscribeTopic = MustGetProcAddress(t2sdkEx, "CancelSubscribeTopic")
+	registeredSubscribeCallBack = t2sdkExDll.MustFindProc("RegisteredSubscribeCallBack")
+	getUnPack = MustGetProcAddress(t2sdkEx, "UnPack")
 }
 
 func GetNewConfig() uintptr {
@@ -138,6 +169,12 @@ func GetNewConnection(config uintptr) uintptr {
 func RegisteredCallBack(fun func(uintptr, int32, uintptr, int32) uintptr) int32 {
 	cb := syscall.NewCallback(fun)
 	r, _, _ := registeredCallBack.Call(cb)
+	return int32(r)
+}
+
+func RegisteredSubscribeCallBack(fun func(uintptr, int32, uintptr, int32) uintptr) int32 {
+	cb := syscall.NewCallback(fun)
+	r, _, _ := registeredSubscribeCallBack.Call(cb)
 	return int32(r)
 }
 
@@ -390,17 +427,140 @@ func FreeMem(packer uintptr) {
 		0)
 }
 
-//export OnReceivedBiz
-// func OnReceivedBiz(CConnectionInterface uintptr,hSend C.int,lpUnPackerOrStr uintptr,nResult C.int)uintptr{
-// 	log.Println("revice asyn msg")
-// 	return 0
-// }
+func GetNewPublisher(conn uintptr, pubName string, msgCount int32, timeOut int32) uintptr {
+	s := C.CString(pubName)
+	defer C.free(unsafe.Pointer(s))
+	r, _, _ := syscall.Syscall6(getNewPublisher, 4,
+		conn,
+		uintptr(unsafe.Pointer(s)),
+		uintptr(msgCount),
+		uintptr(timeOut), 0, 0)
+	return r
+}
 
-// func add(a,b uintptr)uintptr{
-// 	return uintptr(a+b)
-// }
+func GetMCLastError(conn uintptr) string {
+	size := 0
+	buf := make([]byte, 1024+size*1, 2*(1024+size*1))
+	s := C.CString(string(buf[:]))
+	defer C.free(unsafe.Pointer(s))
+	syscall.Syscall(getMCLastError, 2,
+		conn,
+		uintptr(unsafe.Pointer(s)), 0)
+	r, _ := simplifiedchinese.GBK.NewDecoder().String(C.GoString(s))
+	return r
+}
 
-// func AskForCallback(){
-// 	cb:=syscall.NewCallback(add)
-// 	some_c_func.Call(cb)
-// }
+func PubMsgByPacker(lpPublish uintptr, topicName string, unPack uintptr, timeOut int32) int32 {
+	s := C.CString(topicName)
+	defer C.free(unsafe.Pointer(s))
+	r, _, _ := syscall.Syscall6(pubMsgByPacker, 4,
+		lpPublish,
+		uintptr(unsafe.Pointer(s)),
+		unPack,
+		uintptr(timeOut), 0, 0)
+	return int32(r)
+}
+
+func GetNewSubscriber(conn uintptr, subName string, timeOut int32) uintptr {
+	s := C.CString(subName)
+	defer C.free(unsafe.Pointer(s))
+	r, _, _ := syscall.Syscall(getNewSubscriber, 3,
+		conn,
+		uintptr(unsafe.Pointer(s)),
+		uintptr(timeOut))
+	return r
+}
+
+func GetNewSubscribeParam() uintptr {
+	r, _, _ := syscall.Syscall(getNewSubscribeParam, 0,
+		0,
+		0,
+		0)
+	return r
+}
+func SetTopicName(subscribeParam uintptr, topicName string) {
+	s := C.CString(topicName)
+
+	defer C.free(unsafe.Pointer(s))
+
+	syscall.Syscall(setTopicName, 2,
+		subscribeParam,
+		uintptr(unsafe.Pointer(s)),
+		0)
+}
+func SetFromNow(subscribeParam uintptr, isFromNow bool) {
+	v := 0
+	if !isFromNow {
+		v = 1
+	}
+	syscall.Syscall(setFromNow, 2,
+		subscribeParam,
+		uintptr(v),
+		0)
+}
+
+func SetReplace(subscribeParam uintptr, isReplace bool) {
+	v := 0
+	if !isReplace {
+		v = 1
+	}
+	syscall.Syscall(setReplace, 2,
+		subscribeParam,
+		uintptr(v),
+		0)
+}
+
+func SetAppData(subscribeParam uintptr, appData string, nAppData int32) {
+	s := C.CString(appData)
+
+	defer C.free(unsafe.Pointer(s))
+
+	syscall.Syscall(setAppData, 3,
+		subscribeParam,
+		uintptr(unsafe.Pointer(s)),
+		uintptr(nAppData))
+}
+
+func SetFilter(subscribeParam uintptr, filterName string, filterValue string) {
+	s_filterName := C.CString(filterName)
+	s_filterValue := C.CString(filterValue)
+	defer func() {
+		C.free(unsafe.Pointer(s_filterName))
+		C.free(unsafe.Pointer(s_filterValue))
+	}()
+	syscall.Syscall(setFilter, 3,
+		subscribeParam,
+		uintptr(unsafe.Pointer(s_filterName)),
+		uintptr(unsafe.Pointer(s_filterValue)))
+}
+
+func SetSendInterval(subscribeParam uintptr, sendInterval int32) {
+	syscall.Syscall(setSendInterval, 2,
+		subscribeParam,
+		uintptr(sendInterval),
+		0)
+}
+
+func SubscribeTopic(lpSub, lpSubscribeParam uintptr, uTimeOut int32) int32 {
+	r, _, _ := syscall.Syscall(subscribeTopic, 3,
+		lpSub,
+		lpSubscribeParam,
+		uintptr(uTimeOut))
+	return int32(r)
+}
+
+func CancelSubscribeTopic(lpSub uintptr, subIndex int32) int32 {
+	r, _, _ := syscall.Syscall(cancelSubscribeTopic, 2,
+		lpSub,
+		uintptr(subIndex),
+		0)
+	return int32(r)
+}
+
+func GetUnPack(packer uintptr) uintptr {
+	r, _, _ := syscall.Syscall(getUnPack, 1,
+		packer,
+		0,
+		0)
+	return r
+}

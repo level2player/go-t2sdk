@@ -23,7 +23,7 @@ func (req Request_105010) ParseRequestContent() uintptr {
 	return packer
 }
 
-//同步发包
+//同步发包测试案例
 func TestSyncSendMsg(t *testing.T) {
 	config := GetNewConfig()
 	iniFile := "t2sdk.ini"
@@ -85,10 +85,9 @@ func TestSyncSendMsg(t *testing.T) {
 	}
 	Release(conn)
 	Release(config)
-
 }
 
-//异步发包
+//异步发包测试案例
 func TestAsynSendMsg(t *testing.T) {
 	config := GetNewConfig()
 	iniFile := "t2sdk.ini"
@@ -167,4 +166,77 @@ func TestAsynSendMsg(t *testing.T) {
 	Release(conn)
 	Release(config)
 
+}
+//消息中心2.0订阅和发布测试案例
+func TestMC20(t *testing.T) {
+	config := GetNewConfig()
+	iniFile := "t2sdk.ini"
+	ret := LoadT2Config(config, iniFile)
+	if ret != 0 {
+		t.Errorf("T2 Config Read Error,ErrorNo:%d", ret)
+		return
+	}
+	conn := GetNewConnection(config)
+
+	RegisteredCallBack(func(CConnectionInterface uintptr, hSend int32, lpUnPackerOrStr uintptr, nResult int32) uintptr {
+		return 0
+	})
+	ret = InitCreat(conn)
+	if ret != 0 {
+		t.Errorf("InitCreat Error,ErrorNo:%d", ret)
+		return
+	}
+	ret_conn := T2Connect(conn, 1000)
+	if ret_conn != 0 {
+		err_info := GetErrorMsg(conn, ret_conn)
+		t.Errorf("T2Connect Error,ErrorNo:%d,ErrorInfo:%s", ret_conn, err_info)
+		return
+	} else {
+		ch := make(chan int32)
+		//订阅消息
+		RegisteredSubscribeCallBack(func(CConnectionInterface uintptr, subscribeIndex int32, lpUnPackerOrStr uintptr, nLength int32) uintptr {
+			fmt.Printf("revice msg!!!,subscribeIndex:%d", subscribeIndex)
+			ch<-1
+			return 0
+		})
+		lpsub := GetNewSubscriber(conn, "subscriber", 1000)
+		lpsubparam := GetNewSubscribeParam()
+		SetTopicName(lpsubparam, "zz.test")
+		SetFromNow(lpsubparam, false)
+		SetReplace(lpsubparam, false)
+		SetAppData(lpsubparam, "zz", 2)
+		SetSendInterval(lpsubparam, 0)
+		ret := SubscribeTopic(lpsub, lpsubparam, 1000)
+		if ret > 0 {
+			t.Log("SubscribeTopic Ok...")
+		} else {
+			t.Errorf("SubscribeTopic Error Info:%s \r\n", GetErrorMsg(conn, ret))
+			return
+		}
+
+		//发布消息
+		publisher := GetNewPublisher(conn, "publisher", 200, 5000)
+		pack := GetNewPacker(2)
+		AddPackerRef(pack)
+		BeginPack(pack)
+		AddField(pack, "exchange_type")
+		AddField(pack, "stock_code")
+		AddStr(pack, "K")
+		AddStr(pack, "700")
+		EndPack(pack)
+		unpack := GetUnPack(pack)
+		ret = PubMsgByPacker(publisher, "zz.test", unpack, 5000)
+		if ret != 0 {
+			t.Errorf("PubMsgByPacker Error Info:%s \r\n", GetErrorMsg(conn, ret))
+			return
+		} else {
+			t.Log("PubMsgByPacker Ok...")
+		}
+		for {
+			<-ch
+			break
+		}
+	}
+	Release(conn)
+	Release(config)
 }
